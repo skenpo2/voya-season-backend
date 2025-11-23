@@ -6,6 +6,7 @@ import { ApiResponse } from '../utils/ApiResponse';
 import { asyncHandler } from '../utils/asyncHandler';
 import { HTTP_STATUS, ITEMS_PER_PAGE } from '../config/constants';
 import { AuthRequest, PaginationQuery } from '../types';
+import { transformMongoDoc, transformMongoDocs } from '@/utils/transformers';
 
 /**
  * @route   GET /api/cars
@@ -35,14 +36,18 @@ export const getCars = asyncHandler(
     const totalPages = Math.ceil(totalItems / limitNum);
 
     res.status(HTTP_STATUS.OK).json(
-      ApiResponse.success('Cars retrieved successfully', cars, {
-        currentPage: pageNum,
-        totalPages,
-        totalItems,
-        itemsPerPage: limitNum,
-        hasNextPage: pageNum < totalPages,
-        hasPreviousPage: pageNum > 1,
-      })
+      ApiResponse.success(
+        'Cars retrieved successfully',
+        transformMongoDocs(cars),
+        {
+          currentPage: pageNum,
+          totalPages,
+          totalItems,
+          itemsPerPage: limitNum,
+          hasNextPage: pageNum < totalPages,
+          hasPreviousPage: pageNum > 1,
+        }
+      )
     );
   }
 );
@@ -62,7 +67,12 @@ export const getCar = asyncHandler(
 
     res
       .status(HTTP_STATUS.OK)
-      .json(ApiResponse.success('Car retrieved successfully', car));
+      .json(
+        ApiResponse.success(
+          'Car retrieved successfully',
+          transformMongoDoc(car)
+        )
+      );
   }
 );
 
@@ -84,7 +94,12 @@ export const getFeaturedCar = asyncHandler(
 
     res
       .status(HTTP_STATUS.OK)
-      .json(ApiResponse.success('Featured car retrieved successfully', car));
+      .json(
+        ApiResponse.success(
+          'Featured car retrieved successfully',
+          transformMongoDoc(car)
+        )
+      );
   }
 );
 
@@ -149,7 +164,9 @@ export const createCar = asyncHandler(
 
     res
       .status(HTTP_STATUS.CREATED)
-      .json(ApiResponse.success('Car created successfully', car));
+      .json(
+        ApiResponse.success('Car created successfully', transformMongoDoc(car))
+      );
   }
 );
 

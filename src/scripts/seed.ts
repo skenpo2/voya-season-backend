@@ -18,8 +18,8 @@ const seedAdmin = async () => {
     // Create admin
     await Admin.create({
       name: 'Super Admin',
-      email: 'admin@voya.com',
-      password: 'admin123456',
+      email: 'hello@voyaapp.co',
+      password: 'hello@voyaadmin2453#!$$',
       role: 'super_admin',
     });
 
