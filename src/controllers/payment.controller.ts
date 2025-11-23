@@ -8,6 +8,7 @@ import { ApiResponse } from '../utils/ApiResponse';
 import { asyncHandler } from '../utils/asyncHandler';
 import { HTTP_STATUS } from '../config/constants';
 import { AuthRequest, PaginationQuery } from '../types';
+import { transformMongoDocs } from '@/utils/transformers';
 
 /**
  * @route   POST /api/payments/verify/:reference
@@ -100,14 +101,18 @@ export const getPayments = asyncHandler(
     const totalPages = Math.ceil(totalItems / limitNum);
 
     res.status(HTTP_STATUS.OK).json(
-      ApiResponse.success('Payments retrieved successfully', payments, {
-        currentPage: pageNum,
-        totalPages,
-        totalItems,
-        itemsPerPage: limitNum,
-        hasNextPage: pageNum < totalPages,
-        hasPreviousPage: pageNum > 1,
-      })
+      ApiResponse.success(
+        'Payments retrieved successfully',
+        transformMongoDocs(payments),
+        {
+          currentPage: pageNum,
+          totalPages,
+          totalItems,
+          itemsPerPage: limitNum,
+          hasNextPage: pageNum < totalPages,
+          hasPreviousPage: pageNum > 1,
+        }
+      )
     );
   }
 );
