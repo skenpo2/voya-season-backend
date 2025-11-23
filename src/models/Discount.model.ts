@@ -62,6 +62,5 @@ const discountSchema = new Schema<IDiscount>(
 );
 
 // Index
-discountSchema.index({ code: 1 });
 
 export const Discount = mongoose.model<IDiscount>('Discount', discountSchema);

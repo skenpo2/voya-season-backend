@@ -101,6 +101,4 @@ const carSchema = new Schema<ICar>(
   }
 );
 
-carSchema.index({ name: 'text', type: 1 });
-
 export const Car = mongoose.model<ICar>('Car', carSchema);

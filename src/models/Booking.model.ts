@@ -105,8 +105,4 @@ const bookingSchema = new Schema<IBooking>(
   }
 );
 
-// Indexes
-bookingSchema.index({ 'customer.email': 1, createdAt: -1 });
-bookingSchema.index({ carId: 1, status: 1 });
-
 export const Booking = mongoose.model<IBooking>('Booking', bookingSchema);

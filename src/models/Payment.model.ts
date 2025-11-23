@@ -57,8 +57,4 @@ const paymentSchema = new Schema<IPayment>(
   }
 );
 
-// Index
-paymentSchema.index({ transactionReference: 1 });
-paymentSchema.index({ bookingId: 1 });
-
 export const Payment = mongoose.model<IPayment>('Payment', paymentSchema);
