@@ -2,7 +2,6 @@ import { Request, Response, NextFunction } from 'express';
 import { Payment } from '../models/Payment.model';
 import { Booking } from '../models/Booking.model';
 import { PaymentService } from '../services/payment.service';
-import { EmailService } from '../services/email.service';
 import { ApiError } from '../utils/ApiError';
 import { ApiResponse } from '../utils/ApiResponse';
 import { asyncHandler } from '../utils/asyncHandler';
@@ -44,12 +43,12 @@ export const verifyPayment = asyncHandler(
 
       // Send confirmation email
       const booking = await Booking.findById(payment.bookingId);
-      if (booking) {
-        await EmailService.sendPaymentConfirmation(payment.customerEmail, {
-          reference: payment.transactionReference,
-          amount: payment.amount,
-        });
-      }
+      // if (booking) {
+      //   await EmailService.sendPaymentConfirmation(payment.customerEmail, {
+      //     reference: payment.transactionReference,
+      //     amount: payment.amount,
+      //   });
+      // }
 
       res.status(HTTP_STATUS.OK).json(
         ApiResponse.success('Payment verified successfully', {

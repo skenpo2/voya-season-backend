@@ -32,6 +32,7 @@
     "nodemailer": "^7.0.10",
     "paystack": "^2.0.1",
     "paystack-node": "^0.3.0",
+    "resend": "^6.5.2",
     "streamifier": "^0.1.1",
     "stripe": "^20.0.0",
     "winston": "^3.18.3"

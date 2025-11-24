@@ -1,30 +1,33 @@
 import { Request, Response } from 'express';
-import { PaymentService } from '../services/payment.service';
-import { logger } from '@/utils/logger';
-import { HTTP_STATUS } from '../config/constants';
+import { PaymentService } from '../services/payment.service'; // Adjust path
+import { logger } from '../utils/logger'; // Adjust path
 
 export const handlePaystackWebhook = async (req: Request, res: Response) => {
   try {
-    // 1. Paystack sends the signature in the header
+    // 1. Get the signature
     const signature = req.headers['x-paystack-signature'] as string;
 
-    // 2. The body contains the event details
-    const eventData = req.body;
-
     if (!signature) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).send('Signature missing');
+      return res.status(400).send('Signature missing');
     }
 
-    // 3. Process async - Do NOT await this if it takes too long
-    // However, for simple DB updates, awaiting is usually fine.
-    await PaymentService.handleWebhook(signature, eventData);
+    // 2. CRITICAL: Convert Buffer to String
+    // Since we used express.raw(), req.body is a Buffer.
+    // We need the exact string for the hash verification to work.
+    const rawBody = req.body.toString();
+
+    // 3. Delegate to Service
+    // We pass the rawBody (string) so the service can hash it correctly,
+    // and then parse it to JSON internally.
+    await PaymentService.handleWebhook(signature, rawBody);
 
     // 4. Always return 200 OK to Paystack
-    res.status(HTTP_STATUS.OK).send('Webhook received');
+    res.status(200).send('Webhook received');
   } catch (error: any) {
-    // Log error but don't crash the server
+    // Log error but don't crash server
     logger.error(`Webhook Error: ${error.message}`);
-    // Still return 200 to Paystack so they stop sending the failed event (unless you want retries)
-    res.status(HTTP_STATUS.OK).send('Webhook processed with errors');
+
+    // Still return 200 to prevent Paystack from retrying (unless it's a temporary error you want to retry)
+    res.status(200).send('Webhook processed with errors');
   }
 };

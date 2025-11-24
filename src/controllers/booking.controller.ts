@@ -2,7 +2,6 @@ import { Response, NextFunction } from 'express';
 import { Car } from '../models/Car.model';
 import { Payment } from '../models/Payment.model';
 import { PaymentService } from '../services/payment.service';
-import { EmailService } from '../services/email.service';
 import { ApiError } from '../utils/ApiError';
 import { ApiResponse } from '../utils/ApiResponse';
 import { asyncHandler } from '../utils/asyncHandler';
@@ -28,7 +27,6 @@ export const createBooking = asyncHandler(
       paymentMethod,
       discountCode,
     } = req.body;
-
     // 1. Validate car exists
     const car = await Car.findById(carId);
     if (!car) {

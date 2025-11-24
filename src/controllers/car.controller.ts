@@ -67,12 +67,7 @@ export const getCar = asyncHandler(
 
     res
       .status(HTTP_STATUS.OK)
-      .json(
-        ApiResponse.success(
-          'Car retrieved successfully',
-          transformMongoDoc(car)
-        )
-      );
+      .json(ApiResponse.success('Car retrieved successfully', car));
   }
 );
 

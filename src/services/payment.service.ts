@@ -4,6 +4,9 @@ import { HTTP_STATUS } from '../config/constants';
 import { Payment } from '../models/Payment.model';
 import { Booking } from '../models/Booking.model';
 import { logger } from '@/utils/logger';
+
+import { Car } from '../models/Car.model';
+import { sendBookingConfirmation } from '../services/email.service';
 const Paystack = require('paystack');
 
 export class PaymentService {
@@ -24,74 +27,66 @@ export class PaymentService {
     return Paystack(key);
   }
 
-  static async handleWebhook(signature: string, eventData: any) {
+  static async handleWebhook(signature: string, rawBody: string) {
     const secret = process.env.PAYSTACK_SECRET_KEY;
     if (!secret) throw new Error('Paystack secret missing');
 
     // A. Verify Signature
+    // CRITICAL FIX: Hash the rawBody string directly.
+    // Do NOT use JSON.stringify() here.
     const hash = crypto
       .createHmac('sha512', secret)
-      .update(JSON.stringify(eventData))
+      .update(rawBody)
       .digest('hex');
 
     if (hash !== signature) {
       logger.error('Invalid Paystack webhook signature');
-      throw new ApiError(HTTP_STATUS.UNAUTHORIZED, 'Invalid signature');
+      // Using a generic Error here is fine as the Controller catches it
+      throw new Error('Invalid signature');
     }
 
-    // B. Handle 'charge.success'
+    // B. Parse JSON
+    // Now that signature is verified, we can safely parse it to an object
+    const eventData = JSON.parse(rawBody);
+
+    // C. Handle 'charge.success'
     if (eventData.event === 'charge.success') {
       return await this.processSuccessfulPayment(eventData.data);
     }
 
-    // Ignore other events (like 'transfer.success') but return 200 OK
     return true;
   }
 
-  /**
-   * 2. PROCESS SUCCESSFUL PAYMENT
-   * Strictly typed to your IPayment model
-   */
   private static async processSuccessfulPayment(payload: any) {
     const { reference, amount, id, ...otherData } = payload;
 
     logger.info(`Webhook: Processing payment for ref ${reference}`);
 
-    // A. Find the payment record via transactionReference (Unique index)
+    // A. Find the payment record
     const payment = await Payment.findOne({ transactionReference: reference });
 
     if (!payment) {
       logger.error(`Webhook: Payment record not found for ref ${reference}`);
-      return false; // Cannot process
+      return false;
     }
 
     // B. Idempotency Check
-    // If status is already completed, stop here.
     if (payment.status === 'completed') {
       logger.info(`Webhook: Payment ${reference} already processed`);
       return true;
     }
 
     // C. Amount Validation
-    // Database stores main currency (e.g., 5000 NGN)
-    // Paystack sends lowest denomination (e.g., 500000 Kobo)
     const expectedAmountInKobo = payment.amount * 100;
-
     if (expectedAmountInKobo !== amount) {
       logger.warn(
-        `Webhook: Amount mismatch for ${reference}. ` +
-          `DB: ${expectedAmountInKobo}, Paystack: ${amount}`
+        `Webhook: Amount mismatch for ${reference}. DB: ${expectedAmountInKobo}, Paystack: ${amount}`
       );
-      // We update the status to 'failed' or flag it in metadata so admin can review
-      // For now, we allow it but log it, or you can throw/return false to reject.
     }
 
     // D. Update Payment Model
     payment.status = 'completed';
-    payment.paystackReference = String(id); // Save Paystack's internal ID here
-
-    // Store audit trail in 'metadata' (Schema.Types.Mixed)
-    // We preserve existing metadata and add webhook details
+    payment.paystackReference = String(id);
     payment.metadata = {
       ...(payment.metadata || {}),
       webhook_event_id: id,
@@ -103,13 +98,48 @@ export class PaymentService {
 
     await payment.save();
 
-    // E. Update Booking Status
+    // E. Update Booking & Send Email
     if (payment.bookingId) {
-      await Booking.findByIdAndUpdate(payment.bookingId, {
-        status: 'confirmed', // Assuming your Booking model uses 'confirmed'
-        isPaid: true,
-      });
-      logger.info(`Webhook: Booking ${payment.bookingId} confirmed`);
+      // 1. Fetch the booking document
+      const booking = await Booking.findById(payment.bookingId);
+
+      if (booking) {
+        // 2. Update Booking Status
+        booking.status = 'completed';
+        await booking.save();
+
+        logger.info(`Webhook: Booking ${payment.bookingId} confirmed`);
+
+        // 3. Fetch Car Details (Needed for the email template)
+        const car = await Car.findById(booking.carId);
+        const carName = car ? car.name : 'Premium Vehicle';
+
+        // 4. Prepare Email Data
+        // We map the database fields to the Email Interface we created earlier
+        const emailDetails = {
+          customerFirstName: booking.customer.firstName,
+          bookingId: booking._id.toString().toUpperCase().slice(-6), // e.g. "A1B2C3"
+          carModel: carName,
+          pickupAddress: booking.pickup,
+          dates: booking.dates.map((d: any) => ({
+            date: new Date(d.date),
+            time: d.time,
+          })),
+          notes: '', // Add booking notes if your schema supports it
+        };
+
+        // 5. Send Email
+        // We wrap this in a try-catch so email failure doesn't crash the Webhook response
+        try {
+          await sendBookingConfirmation(booking.customer.email, emailDetails);
+          logger.info(`Webhook: Email sent to ${booking.customer.email}`);
+        } catch (emailError) {
+          logger.error(
+            `Webhook: Failed to send email for booking ${booking._id}`,
+            emailError
+          );
+        }
+      }
     }
 
     return true;
@@ -242,7 +272,7 @@ export class PaymentService {
       status: payment.status,
       receipt: {
         reference: payment.transactionReference,
-        amount: payment.amount, // This is already in correct currency unit based on your creation logic
+        amount: payment.amount,
         date: payment.updatedAt,
         method: payment.paymentMethod,
         customerEmail: payment.customerEmail,

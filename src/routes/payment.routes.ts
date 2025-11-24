@@ -17,5 +17,4 @@ router.get('/verify', verifyPaymentCallback);
 router.get('/', protect, getPayments);
 router.patch('/:id/status', protect, updatePaymentStatus);
 
-router.post('/webhook', handlePaystackWebhook);
 export default router;

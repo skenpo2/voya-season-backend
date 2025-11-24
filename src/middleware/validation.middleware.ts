@@ -4,6 +4,7 @@ import { ApiError } from '../utils/ApiError';
 import { HTTP_STATUS } from '../config/constants';
 
 export const validate = (req: Request, res: Response, next: NextFunction) => {
+  console.log(req.body);
   const errors = validationResult(req);
 
   if (!errors.isEmpty()) {
